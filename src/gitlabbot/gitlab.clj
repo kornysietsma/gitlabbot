@@ -44,8 +44,10 @@
 
 (defn commit-summary [commit]
   (if commit
-    (select-keys commit [:id :short_id :created_at :message
-                         :author_name])
+    (let [summary (select-keys commit [:id :short_id :created_at
+                                       :author_name])
+          result (merge summary {:message (or (:title commit) (:message commit))})] ; bloody broken apis
+      result)
     nil))
 
 (defn project-summaries [config]
@@ -60,10 +62,11 @@
            {:last-commit (commit-summary lc)})))
 
 (defn initial-project-data [config]
-  (into {}
-        (for [p (all-projects config)]
-          [(:id p)
-           (summary-with-last-commit config p)])))
+  (let [result (into {}
+                     (for [p (all-projects config)]
+                       [(:id p)
+                        (summary-with-last-commit config p)]))]
+    result))
 
 (defn changed-projects [old-summary new-summary]
   (let [ids (clojure.set/intersection (keys old-summary) (keys new-summary))]
@@ -73,7 +76,9 @@
 (defn merge-with-latest-commit [config old-project new-full-project]
   (if (= (:last_activity_at old-project) (:last_activity_at new-full-project))
     old-project
-    (summary-with-last-commit config new-full-project)))
+    (do
+      (println "found difference: " (:name old-project) " activity" (:last_activity_at old-project) " to " (:last_activity_at new-full-project))
+      (summary-with-last-commit config new-full-project))))
 
 (defn update-projects [config old-projects]
   (let [new-projects (all-projects config)]
@@ -89,7 +94,9 @@
         new-commit (get-in new-project [:last-commit :id])]
     (if (= old-commit new-commit)
       nil
-      new-project)))
+      (do
+        (println "found commit changes:" (:name old-project) ":" (:last-commit old-project) (:last-commit new-project))
+        new-project))))
 
 (defn diff-project-lists [old-projects new-projects]
   (let [new-ids (set (keys new-projects))
@@ -103,7 +110,8 @@
                        (for [id common-ids]
                          (changed-project? (old-projects id) (new-projects id))))}))
 
-(defn print-commit-msg [{:keys [short-group short-name last-commit]}]
+(defn print-commit-msg [{:keys [short-group short-name last-commit] :as commit}]
+  (println "comming message:" commit)
   (if last-commit
     (str "[" short-group "/" short-name "/" (:short_id last-commit) "] " (:author_name last-commit) ": " (clojure.string/trim (:message last-commit)))
     (str "[" short-group "/" short-name "] - no commits yet")))

@@ -36,11 +36,14 @@
   (try
     (if-let [projects (:projects world)]
       (let [new-projects (gitlab/update-projects (:config world) projects)
+            _ (prn "loaded new projects on tick")
             updates (gitlab/printable-diff (gitlab/diff-project-lists projects new-projects))
             target (get-in world [:config :channel])]
         (doall (map (partial send-message! world target) updates))
         (assoc world :projects new-projects))
-      (assoc world :projects (gitlab/initial-project-data (:config world))))
+      (do
+        (println "first time - getting initial projects...")
+        (assoc world :projects (gitlab/initial-project-data (:config world)))))
     (catch Exception e
       (do
         (println "caught exception:" e)
@@ -96,7 +99,7 @@
         killer ([reason] (do
                            (irclj/quit (:connection data))
                            (println "killed because:" reason)))
-        (timeout 1000) (recur (irc-tick data))))
+        (timeout 10000) (recur (irc-tick data))))
     killer))
 
 (comment "for repling"
