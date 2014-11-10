@@ -9,75 +9,58 @@
             )
   (:gen-class))
 
-
-(defn message! [world nick msg]
-  (put! (:in world) {:cmd :write :nick nick :message msg}))
-
-(defn quit! [world reason]
-  (put! (:killer world) reason))
-
-(defn do-command [world text nick reply-to]
-  (println "command:" text nick reply-to)
-  (case text
-    "quit" (quit! world (str "request from " nick))
-    "help" (message! world reply-to (str
-                                                   "send message via 'gitlab:cmd' or msg gitlabbot with 'cmd'"
-                                                   "commands: 'help' and 'quit' only!"))
-    (message! world reply-to (str "unknown command: " text " - try help"))))
-
-(defn send-help [world nick]
-  (message! world nick "try \"/msg gitlabbot help\" or \"gitlabbot: help\" from a channel the bot is in"))
-
 (defn parse-command [botname text target]
+  (prn botname text target)
   (when-let [match (if (= botname target)
                      (re-matches #"(.*)" text)
                      (re-matches #"gitlabbot:(.*)" text))]
     (clojure.string/trim (second match))))
 
-(defn privmsg
-  "send a private message - takes a world with an :in channel for comms"
+(defn privmsg-callback
+  "handle a private message - takes a partially-constructed world with an :in channel for relaying commands"
   [world raw-irc {:keys [nick text target] :as data}]
   ; nick is the sender, target is the channel or botname if private
-  (println "privmsg:" nick text)
   (let [botname (get-in world [:config :botname])
         reply-to (if (= target botname)
                    nick
                    target)]
     (if-let [command (parse-command botname text target)]
-      (do-command world command nick reply-to)
-      (if (= botname target)                                ; unknown message to bot
-        (send-help (:in world) nick)))))
+      (put! (:in world) {:cmd      command
+                         :nick     nick
+                         :reply-to reply-to}))))
 
-(defn report [irc message]
-  (irclj/message (:connection irc) (get-in irc [:config :channel]) message))
+(defn send-message! [world target message]
+  (irclj/message (:connection world) target message))
 
-(defn irc-tick [irc]
+(defn irc-tick [world]
   (try
-    (if-let [projects (:projects irc)]
-      (let [new-projects (gitlab/update-projects (:config irc) projects)
-            updates (gitlab/printable-diff (gitlab/diff-project-lists projects new-projects))]
-        (doall (map (partial report irc) updates))
-        (assoc irc :projects new-projects))
-      (assoc irc :projects (gitlab/initial-project-data (:config irc))))
+    (if-let [projects (:projects world)]
+      (let [new-projects (gitlab/update-projects (:config world) projects)
+            updates (gitlab/printable-diff (gitlab/diff-project-lists projects new-projects))
+            target (get-in world [:config :channel])]
+        (doall (map (partial send-message! world target) updates))
+        (assoc world :projects new-projects))
+      (assoc world :projects (gitlab/initial-project-data (:config world))))
     (catch Exception e
       (do
         (println "caught exception:" e)
         (clojure.stacktrace/print-stack-trace e)
-        irc)
+        world)
       )))
 
-(defn irc-command [data command]
-  (case (:cmd command)
-    :write (do  (println "connection:" (:connection data) " command:" command)
-             (irclj/message
-                 (:connection data)
-                 (:nick command)
-                 (:message command)))
-    (println "Unknown command:" command " data:" data))
-  data)
+(defn irc-command [world {:keys [cmd nick reply-to] :as payload}]
+  (case (clojure.string/trim cmd)
+    "quit" (do
+             (send-message! world (get-in world [:config :channel]) (str "killed by request from " nick))
+             (put! (:killer world) (str "killed by request from " nick)))
+    "help" (send-message! world reply-to (str
+                                      "send message via 'gitlab:cmd' or msg gitlabbot with 'cmd'"
+                                      "commands: 'help' and 'quit' only!"))
+    (send-message! world reply-to (str "Unknown command:" cmd " - try 'help'")))
+  world)
 
 
-(defn callbacks [world] {:privmsg (partial privmsg world)})
+(defn callbacks [world] {:privmsg (partial privmsg-callback world)})
 
 (defn connection [{:keys [config] :as world}]
   (irclj/connect
@@ -104,12 +87,12 @@
 
 (defn irc-loop
   "core.async based main loop" [initial-config]
-  (let [killer (chan)
-        in (chan)]
+  (let [in (chan)
+        killer (chan)]
     (go-loop [data (connect initial-config in killer)]
       (alt!
         in ([command]
-              (recur (irc-command data command)))
+            (recur (irc-command data command)))
         killer ([reason] (do
                            (irclj/quit (:connection data))
                            (println "killed because:" reason)))
