@@ -13,6 +13,18 @@ This is based on my also-hacky buildbot project - I should end up extracting com
 I started this using lazybot, but it was a bit complex, and the mongodb dependency made it too hard to run at work,
 so decided to roll my own...
 
+## usage
+
+via leiningen:
+
+`lein run config_file.clj`
+
+sample config file is in resources/default-config.clj
+
+You can also build an uberjar with `lein uberjar` and then run with just java:
+
+`java -jar uberjar.jar config_file.clj`
+
 ## License
 
         DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE

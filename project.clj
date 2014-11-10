@@ -11,4 +11,6 @@
                  [org.clojure/core.match "0.2.2"]
                  [clj-http "1.0.0"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]
-  :main gitlabbot.core)
+  :main gitlabbot.core
+  :profiles {:uberjar {:main gitlabbot.core
+                       :aot :all}})
