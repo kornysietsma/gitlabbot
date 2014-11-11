@@ -46,7 +46,7 @@
   (if commit
     (let [summary (select-keys commit [:id :short_id :created_at
                                        :author_name])
-          result (merge summary {:message (or (:title commit) (:message commit))})] ; bloody broken apis
+          result (merge summary {:message (or (:message commit) (:title commit))})] ; use title if no message
       result)
     nil))
 
