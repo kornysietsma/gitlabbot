@@ -2,7 +2,7 @@
   :description "Basic IRC cctray build Bot"
   :license {:name "Do What The Fuck You Want To Public License (WTFPL)"
             :url "http://www.wtfpl.net/"}
-  :dependencies [[com.sietsma.korny/botty "0.1.2"]
+  :dependencies [[com.sietsma.korny/botty "0.1.3"]
                  [org.clojure/clojure "1.6.0"]
                  [midje "1.6.3"]
                  [org.clojure/data.xml "0.0.8"]

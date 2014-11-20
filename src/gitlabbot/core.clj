@@ -1,12 +1,7 @@
 (ns gitlabbot.core
   (:require [botty.core :as botty]
-            [irclj.core :as irclj]
             [clojure.pprint :refer [pprint]]
-            [clj-http.client :as http]
-            [overtone.at-at :as at-at]
-            [gitlabbot.config :as c]
             [gitlabbot.gitlab :as gitlab]
-            [clojure.core.async :refer [chan go-loop >! <! timeout alt! put! <!!] :as async]
             [clojure.tools.reader.edn :as edn])
   (:gen-class))
 
@@ -49,8 +44,8 @@
                  0 default-config
                  1 (edn/read-string (slurp (first args)))
                  (throw (Exception. "please specify a config file, or no args for dev-only defaults")))
-        killer (botty/irc-loop config {:on-tick on-tick
+        wait-for-death-fn (botty/irc-loop config {:on-tick on-tick
                                        :on-command on-command})]
     (prn "waiting to die.")
-    (println (<!! killer))
+    (wait-for-death-fn)
     (prn "done!")))
