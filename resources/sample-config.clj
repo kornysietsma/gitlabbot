@@ -3,4 +3,5 @@
  :botname "gitlabbot"
  :irchost "localhost"
  :ircport 6667
- :channel "#general"}
+ :channels ["#general"]
+ :tick-ms 10000}

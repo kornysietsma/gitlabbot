@@ -4,14 +4,10 @@ An IRC bot to watch gitlab commits
 
 ## Usage
 
-At the moment this is in active development, and running it probably requires hacking code. sorry.
-
-Also there's some horrible stuff in here. Avoid.  Mostly just on github so I can share it with work pc.
-
-This is based on my also-hacky buildbot project - I should end up extracting common stuff to a bot library.
+At the moment this is in active development, and running it probably requires reading code. sorry.
 
 I started this using lazybot, but it was a bit complex, and the mongodb dependency made it too hard to run at work,
-so decided to roll my own...
+so decided to roll my own... it's now based on http://github.com/kornysietsma/botty
 
 ## usage
 
@@ -19,7 +15,7 @@ via leiningen:
 
 `lein run config_file.clj`
 
-sample config file is in resources/default-config.clj
+sample config file is in resources/sample-config.clj
 
 You can also build an uberjar with `lein uberjar` and then run with just java:
 
