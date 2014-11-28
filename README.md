@@ -21,6 +21,9 @@ You can also build an uberjar with `lein uberjar` and then run with just java:
 
 `java -jar uberjar.jar config_file.clj`
 
+NOTE: the current version requires you to add projects manually - need to add the ability to add a whole group asap.
+
+
 ## License
 
         DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE

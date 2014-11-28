@@ -1,7 +1,8 @@
 (ns gitlabbot.gitlab
-  (:require [gitlabbot.config]
-            [clj-http.client :as client]
-            [cheshire.core :as c]))
+  (:require [clj-http.client :as client]
+            [clj-http.util :as util]
+            [cheshire.core :as c]
+            ))
 
 (defn get-token [config login password]
   (let [url (str (:api-base config) "session")
@@ -21,8 +22,32 @@
       (lazy-seq (concat data (get-paginated next-url token)))
       data)))
 
+(defn get-single "get a url representing a single resource"
+  [url token]
+  (-> (client/get url (private-headers token))
+      :body
+      (c/parse-string true)))
+
 (defn all-projects [config]
   (get-paginated (str (:api-base config) "projects") (:token config)))
+
+(defn project-by-name [config name]
+  (get-single (str (:api-base config) "projects/" (util/url-encode name)) (:token config)))
+
+(defn project-by-id [config id]
+  (get-single (str (:api-base config) "projects/" id) (:token config)))
+
+(defn all-groups "get groups - returns a list of objects with keys :id :name :path :owner_id"
+  [config]
+  (get-paginated (str (:api-base config) "groups") (:token config)))
+
+(defn group-id [config group-path]
+  (let [groups (all-groups config)
+        g (first (filter #(= group-path (:path %)) groups))]
+    (:id g)))
+
+(defn group-projects [config group-id]
+  (:projects (get-single (str (:api-base config) "groups/" group-id) (:token config))))
 
 (defn all-commits [config project-id]
   (get-paginated (str (:api-base config) "projects/" project-id "/repository/commits") (:token config)))
@@ -80,7 +105,18 @@
       (println "found difference: " (:name old-project) " activity" (:last_activity_at old-project) " to " (:last_activity_at new-full-project))
       (summary-with-last-commit config new-full-project))))
 
+
 (defn update-projects [config old-projects]
+  (let [new-project-ids (keys old-projects)
+        new-projects (map (partial project-by-id config) new-project-ids)]
+    (into {}
+          (for [new-p new-projects]
+            [(:id new-p)
+             (if-let [old-p (get old-projects (:id new-p))]
+               (merge-with-latest-commit config old-p new-p)
+               (summary-with-last-commit config new-p))]))))
+
+(defn update-all-projects [config old-projects]
   (let [new-projects (all-projects config)]
     (into {}
           (for [new-p new-projects]
@@ -97,6 +133,7 @@
       (do
         (println "found commit changes:" (:name old-project) ":" (:last-commit old-project) (:last-commit new-project))
         new-project))))
+
 
 (defn diff-project-lists [old-projects new-projects]
   (let [new-ids (set (keys new-projects))
@@ -128,7 +165,7 @@
 (comment "for repl-ing"
   (def conf gitlabbot.config/default-config)
   (def prevp (initial-project-data conf))
-  (def newp (update-projects conf prevp))
+  (def newp (update-all-projects conf prevp))
   (clojure.pprint/pprint prevp)
   (clojure.pprint/pprint newp)
   (clojure.pprint/pprint (diff-project-lists prevp newp))
